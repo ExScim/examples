@@ -23,8 +23,8 @@ jobs:
       fail-fast: false
       matrix:
         project:
-          - examples/provider
-          - examples/client
+          - provider
+          - client
 
     steps:
       - uses: actions/checkout@v4
