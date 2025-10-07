@@ -66,9 +66,21 @@ defmodule Provider.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-      {:ex_scim, path: "../../ex_scim"},
-      {:ex_scim_phoenix, path: "../../ex_scim_phoenix"},
-      {:ex_scim_ecto, path: "../../ex_scim_ecto"}
+      {:ex_scim,
+       if(Mix.env() == :dev,
+         do: [path: "../../ex_scim", override: true],
+         else: [github: "ExScim/ex_scim", override: true]
+       )},
+      {:ex_scim_phoenix,
+       if(Mix.env() == :dev,
+         do: [path: "../../ex_scim_phoenix"],
+         else: [github: "ExScim/ex_scim_phoenix"]
+       )},
+      {:ex_scim_ecto,
+       if(Mix.env() == :dev,
+         do: [path: "../../ex_scim_ecto"],
+         else: [github: "ExScim/ex_scim_ecto"]
+       )},
     ]
   end
 
