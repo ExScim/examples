@@ -47,7 +47,7 @@ jobs:
     
       - name: Install dependencies
         working-directory: ${{ matrix.project }}
-        run: mix deps.get
+        run: MIX_ENV=test mix deps.get
     
       - name: Compile project
         working-directory: ${{ matrix.project }}
