@@ -62,7 +62,7 @@ config :logger, :default_formatter,
 config :phoenix, :json_library, Jason
 
 config :ex_scim,
-  base_url: "http://host.docker.internal:4000",
+  base_url: "http://localhost:4000",
   auth_provider_adapter: Provider.Scim.FakeAuthProvider,
   user_resource_mapper: Provider.Scim.UserMapper,
   group_resource_mapper: Provider.Scim.GroupMapper,
