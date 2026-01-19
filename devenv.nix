@@ -8,6 +8,7 @@
 
 {
   packages = [
+    pkgs.beam28Packages.elixir_1_19
     pkgs.git
     pkgs.inotify-tools
     pkgs.tailwindcss-language-server
