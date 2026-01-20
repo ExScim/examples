@@ -13,34 +13,54 @@ defmodule Client.ScimTesting do
   alias ExScimClient.Resources.ResourceTypes
 
   @test_definitions [
-    %{id: :create_user, name: "Create User", icon: "📝", description: "Create a new user account"},
-    %{id: :get_user, name: "Get User", icon: "🔍", description: "Fetch user details"},
-    %{id: :update_user, name: "Update User", icon: "✏️", description: "Modify user information"},
-    %{id: :patch_user, name: "Patch User", icon: "🔧", description: "Apply partial user updates"},
-    %{id: :list_users, name: "List Users", icon: "📋", description: "Browse all users"},
-    %{id: :delete_user, name: "Delete User", icon: "🗑️", description: "Remove the test user"},
+    %{
+      id: :create_user,
+      name: "Create User",
+      icon: "hero-beaker",
+      description: "Create a new user account"
+    },
+    %{id: :get_user, name: "Get User", icon: "hero-beaker", description: "Fetch user details"},
+    %{
+      id: :update_user,
+      name: "Update User",
+      icon: "hero-beaker",
+      description: "Modify user information"
+    },
+    %{
+      id: :patch_user,
+      name: "Patch User",
+      icon: "hero-beaker",
+      description: "Apply partial user updates"
+    },
+    %{id: :list_users, name: "List Users", icon: "hero-beaker", description: "Browse all users"},
+    %{
+      id: :delete_user,
+      name: "Delete User",
+      icon: "hero-beaker",
+      description: "Remove the test user"
+    },
     %{
       id: :me_operations,
       name: "User Profile",
-      icon: "👤",
+      icon: "hero-beaker",
       description: "Check current user information"
     },
     %{
       id: :schema_operations,
       name: "Schema Info",
-      icon: "📋",
+      icon: "hero-beaker",
       description: "Get data structure details"
     },
     %{
       id: :resource_types,
       name: "Resource Types",
-      icon: "🏷️",
+      icon: "hero-beaker",
       description: "List available resource types"
     },
     %{
       id: :bulk_operations,
       name: "Bulk Operations",
-      icon: "📦",
+      icon: "hero-beaker",
       description: "Process multiple operations at once"
     }
   ]
