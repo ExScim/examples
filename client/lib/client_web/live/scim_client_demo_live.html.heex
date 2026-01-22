@@ -58,13 +58,13 @@
             <% else %>
               <.button
                 phx-click="start_tests"
-                disabled={is_nil(@client)}
+                disabled={is_nil(@client) or MapSet.size(@enabled_tests) == 0}
                 class={
-                  if(@client,
+                  if(not is_nil(@client) and MapSet.size(@enabled_tests) > 0,
                     do:
                       "inline-flex items-center text-white bg-blue-500 hover:bg-blue-700 box-border border border-transparent focus:ring-4 focus:ring-blue-500 shadow-xs font-medium leading-5 rounded text-sm px-4 py-2.5 focus:outline-none",
                     else:
-                      "cursor-not-allowed inline-flex items-center text-white bg-gray-400 hover:bg-gray-600 box-border border border-transparent focus:ring-4 focus:ring-gray-400 shadow-xs font-medium leading-5 rounded text-sm px-4 py-2.5 focus:outline-none" 
+                      "cursor-not-allowed inline-flex items-center text-white bg-gray-400 hover:bg-gray-600 box-border border border-transparent focus:ring-4 focus:ring-gray-400 shadow-xs font-medium leading-5 rounded text-sm px-4 py-2.5 focus:outline-none"
                   )
                 }
               >
@@ -129,8 +129,10 @@
             <h3 class="card-title">Test Summary</h3>
 
             <.list>
-              <:item title="Total Tests">
-                {length(test_definitions())}
+              <:item title="Selected">
+                <span class="font-semibold">
+                  {MapSet.size(@enabled_tests)} / {length(test_definitions())}
+                </span>
               </:item>
               <:item title="Passed">
                 <span class="text-success font-semibold">
@@ -164,12 +166,50 @@
       
 <!-- Main Content -->
       <div class="lg:col-span-3">
+        <!-- Test Grid Header -->
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold">Test Cases</h2>
+          <div class="flex items-center space-x-2">
+            <button
+              phx-click="toggle_all_tests"
+              phx-value-action="enable"
+              disabled={@running}
+              class={[
+                "btn btn-sm",
+                if(@running, do: "btn-disabled", else: "btn-outline")
+              ]}
+            >
+              Select All
+            </button>
+            <button
+              phx-click="toggle_all_tests"
+              phx-value-action="disable"
+              disabled={@running}
+              class={[
+                "btn btn-sm",
+                if(@running, do: "btn-disabled", else: "btn-outline")
+              ]}
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+
+        <!-- Warning when no tests selected -->
+        <%= if MapSet.size(@enabled_tests) == 0 do %>
+          <div class="alert alert-warning mb-4">
+            <.icon name="hero-exclamation-triangle" class="size-5" />
+            <span>No tests selected. Please select at least one test to run.</span>
+          </div>
+        <% end %>
+
         <!-- Test Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <%= for test_def <- test_definitions() do %>
             <% test_result =
               Map.get(@test_results, test_def.id, %{status: :pending, result: nil, error: nil}) %>
 
+            <% is_enabled = MapSet.member?(@enabled_tests, test_def.id) %>
             <div class={[
               "card bg-base-100 shadow-xl transition-all duration-200 hover:shadow-2xl border border-base-300 border-l-4",
               case test_result.status do
@@ -177,12 +217,21 @@
                 :running -> "border-l-primary"
                 :success -> "border-l-success"
                 :error -> "border-l-error"
-              end
+              end,
+              if(!is_enabled, do: "opacity-50", else: "")
             ]}>
               <div class="card-body">
                 <!-- Test Header -->
                 <div class="flex items-start justify-between mb-4">
                   <div class="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-primary"
+                      checked={is_enabled}
+                      phx-click="toggle_test"
+                      phx-value-test-id={test_def.id}
+                      disabled={@running}
+                    />
                     <div class={[
                       "w-10 h-10 rounded-lg flex items-center justify-center text-lg",
                       cond do

@@ -17,51 +17,71 @@ defmodule Client.ScimTesting do
       id: :create_user,
       name: "Create User",
       icon: "hero-beaker",
-      description: "Create a new user account"
+      description: "Create a new user account",
+      depends_on: []
     },
-    %{id: :get_user, name: "Get User", icon: "hero-beaker", description: "Fetch user details"},
+    %{
+      id: :get_user,
+      name: "Get User",
+      icon: "hero-beaker",
+      description: "Fetch user details",
+      depends_on: [:create_user]
+    },
     %{
       id: :update_user,
       name: "Update User",
       icon: "hero-beaker",
-      description: "Modify user information"
+      description: "Modify user information",
+      depends_on: [:create_user]
     },
     %{
       id: :patch_user,
       name: "Patch User",
       icon: "hero-beaker",
-      description: "Apply partial user updates"
+      description: "Apply partial user updates",
+      depends_on: [:create_user]
     },
-    %{id: :list_users, name: "List Users", icon: "hero-beaker", description: "Browse all users"},
+    %{
+      id: :list_users,
+      name: "List Users",
+      icon: "hero-beaker",
+      description: "Browse all users",
+      depends_on: []
+    },
     %{
       id: :delete_user,
       name: "Delete User",
       icon: "hero-beaker",
-      description: "Remove the test user"
+      description: "Remove the test user",
+      depends_on: [:create_user]
     },
     %{
       id: :me_operations,
       name: "User Profile",
       icon: "hero-beaker",
-      description: "Check current user information"
+      description: "Check current user information",
+      depends_on: []
     },
     %{
       id: :schema_operations,
       name: "Schema Info",
       icon: "hero-beaker",
-      description: "Get data structure details"
+      description: "Get data structure details",
+      depends_on: []
     },
     %{
       id: :resource_types,
       name: "Resource Types",
       icon: "hero-beaker",
-      description: "List available resource types"
+      description: "List available resource types",
+      depends_on: []
     },
     %{
       id: :bulk_operations,
       name: "Bulk Operations",
       icon: "hero-beaker",
-      description: "Process multiple operations at once"
+      description: "Process multiple operations at once",
+      depends_on: []
     }
   ]
 
@@ -80,36 +100,85 @@ defmodule Client.ScimTesting do
   end
 
   @doc """
+  Returns the default enabled tests set (all tests).
+  """
+  def default_enabled_tests do
+    @test_definitions |> Enum.map(& &1.id) |> MapSet.new()
+  end
+
+  @doc """
+  Returns all test IDs that depend on the given test (direct and transitive).
+  """
+  def dependents_of(test_id) do
+    direct =
+      @test_definitions
+      |> Enum.filter(fn t -> test_id in t.depends_on end)
+      |> Enum.map(& &1.id)
+
+    transitive = Enum.flat_map(direct, &dependents_of/1)
+
+    Enum.uniq(direct ++ transitive)
+  end
+
+  @doc """
+  Returns all dependencies of the given test (direct and transitive).
+  """
+  def dependencies_of(test_id) do
+    test = Enum.find(@test_definitions, &(&1.id == test_id))
+
+    case test do
+      nil ->
+        []
+
+      %{depends_on: depends_on} ->
+        transitive = Enum.flat_map(depends_on, &dependencies_of/1)
+        Enum.uniq(depends_on ++ transitive)
+    end
+  end
+
+  @doc """
   Runs all SCIM tests in sequence.
 
   This function orchestrates the entire test suite, sending progress messages
-  to the provided process ID.
+  to the provided process ID. Only tests in the enabled_tests set will be executed.
   """
-  def run_all_tests(pid, client) do
+  def run_all_tests(pid, client, enabled_tests) do
     send(pid, {:log_message, "🚀 Starting SCIM Integration Tests"})
 
+    # Only run create_user if enabled
     user_id =
-      case run_single_test(pid, client, :create_user, nil) do
-        {:ok, id} -> id
-        _ -> nil
+      if MapSet.member?(enabled_tests, :create_user) do
+        case run_single_test(pid, client, :create_user, nil) do
+          {:ok, id} -> id
+          _ -> nil
+        end
+      else
+        nil
       end
 
-    if user_id do
-      send(pid, {:user_created, user_id})
+    if user_id, do: send(pid, {:user_created, user_id})
 
-      Enum.each([:get_user, :update_user, :patch_user], fn test ->
+    # User-dependent tests (only if enabled AND user_id exists)
+    Enum.each([:get_user, :update_user, :patch_user], fn test ->
+      if MapSet.member?(enabled_tests, test) and user_id do
         run_single_test(pid, client, test, user_id)
-      end)
-    end
+      end
+    end)
 
+    # Independent tests (only if enabled)
     Enum.each(
       [:list_users, :me_operations, :schema_operations, :resource_types, :bulk_operations],
       fn test ->
-        run_single_test(pid, client, test, user_id)
+        if MapSet.member?(enabled_tests, test) do
+          run_single_test(pid, client, test, user_id)
+        end
       end
     )
 
-    if user_id, do: run_single_test(pid, client, :delete_user, user_id)
+    # Delete user last (only if enabled AND user_id exists)
+    if MapSet.member?(enabled_tests, :delete_user) and user_id do
+      run_single_test(pid, client, :delete_user, user_id)
+    end
 
     send(pid, {:tests_completed})
   end

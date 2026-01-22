@@ -16,7 +16,8 @@ defmodule ClientWeb.ScimClientDemoLive do
         test_task_pid: nil,
         progress: 0,
         logs: [],
-        created_user_id: nil
+        created_user_id: nil,
+        enabled_tests: ScimTesting.default_enabled_tests()
       )
 
     send(self(), :load_saved_config)
@@ -119,11 +120,42 @@ defmodule ClientWeb.ScimClientDemoLive do
     {:noreply, socket}
   end
 
+  def handle_event("toggle_test", %{"test-id" => test_id}, socket) do
+    test_atom = String.to_existing_atom(test_id)
+    enabled_tests = socket.assigns.enabled_tests
+
+    enabled_tests =
+      if MapSet.member?(enabled_tests, test_atom) do
+        # Disabling: also disable all dependents
+        dependents = ScimTesting.dependents_of(test_atom)
+        to_disable = MapSet.new([test_atom | dependents])
+        MapSet.difference(enabled_tests, to_disable)
+      else
+        # Enabling: also enable all dependencies
+        dependencies = ScimTesting.dependencies_of(test_atom)
+        to_enable = MapSet.new([test_atom | dependencies])
+        MapSet.union(enabled_tests, to_enable)
+      end
+
+    {:noreply, assign(socket, enabled_tests: enabled_tests)}
+  end
+
+  def handle_event("toggle_all_tests", %{"action" => "enable"}, socket) do
+    {:noreply, assign(socket, enabled_tests: ScimTesting.default_enabled_tests())}
+  end
+
+  def handle_event("toggle_all_tests", %{"action" => "disable"}, socket) do
+    {:noreply, assign(socket, enabled_tests: MapSet.new())}
+  end
+
   def handle_info(:run_tests, socket) do
     live_view_pid = self()
+    enabled_tests = socket.assigns.enabled_tests
 
     {:ok, task_pid} =
-      Task.start(fn -> ScimTesting.run_all_tests(live_view_pid, socket.assigns.client) end)
+      Task.start(fn ->
+        ScimTesting.run_all_tests(live_view_pid, socket.assigns.client, enabled_tests)
+      end)
 
     socket = assign(socket, test_task_pid: task_pid)
     {:noreply, socket}
@@ -235,6 +267,9 @@ defmodule ClientWeb.ScimClientDemoLive do
 
   defp validate_configuration(socket) do
     cond do
+      MapSet.size(socket.assigns.enabled_tests) == 0 ->
+        {:error, "Please select at least one test to run"}
+
       socket.assigns.base_url == "" ->
         {:error, "Please configure a valid BASE_URL (e.g., https://your-scim-server.com)"}
 
