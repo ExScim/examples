@@ -36,15 +36,15 @@ defmodule ProviderWeb.Router do
     get "/", PageController, :home
 
     live "/users", UserLive.Index, :index
-    live "/users/new", UserLive.Index, :new
-    live "/users/:id/edit", UserLive.Index, :edit
+    live "/users/new", UserLive.Form, :new
+    live "/users/:id/edit", UserLive.Form, :edit
 
     live "/users/:id", UserLive.Show, :show
     live "/users/:id/show/edit", UserLive.Show, :edit
 
     live "/groups", GroupLive.Index, :index
-    live "/groups/new", GroupLive.Index, :new
-    live "/groups/:id/edit", GroupLive.Index, :edit
+    live "/groups/new", GroupLive.Form, :new
+    live "/groups/:id/edit", GroupLive.Form, :edit
 
     live "/groups/:id", GroupLive.Show, :show
     live "/groups/:id/show/edit", GroupLive.Show, :edit
