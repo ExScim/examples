@@ -199,8 +199,14 @@ defmodule Client.ScimTesting do
   end
 
   defp test_update_user(client, user_id) do
-    updated_data = generate_random_user_update()
-    Users.update(client, user_id, updated_data)
+    case Users.get(client, user_id) do
+      {:ok, existing_user} ->
+        updated_data = generate_random_user_update(existing_user)
+        Users.update(client, user_id, updated_data)
+
+      error ->
+        error
+    end
   end
 
   defp test_patch_user(client, user_id) do
@@ -292,16 +298,18 @@ defmodule Client.ScimTesting do
     }
   end
 
-  defp generate_random_user_update do
+  defp generate_random_user_update(existing_user) do
     random_id = generate_random_string(6)
     first_name = Enum.random(["Updated", "Modified", "Changed", "New"])
     last_name = Enum.random(["User", "Person", "Individual", "Account"])
+    display_name = "#{first_name} #{last_name} #{random_id}"
+    title = "Updated #{generate_random_job_title()}"
 
-    %{
-      "schemas" => ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      "displayName" => "#{first_name} #{last_name} #{random_id}",
-      "title" => "Updated #{generate_random_job_title()}"
-    }
+    existing_user
+    |> put_in(["name", "givenName"], first_name)
+    |> put_in(["name", "familyName"], last_name)
+    |> Map.update("displayName", display_name, fn _ -> display_name end)
+    |> Map.update("title", title, fn _ -> title end)
   end
 
   defp generate_random_job_title do
