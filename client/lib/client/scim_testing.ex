@@ -120,6 +120,47 @@ defmodule Client.ScimTesting do
     Enum.uniq(direct ++ transitive)
   end
 
+  @capability_test_map %{
+    "patch" => [:patch_user],
+    "bulk" => [:bulk_operations]
+  }
+
+  @doc """
+  Returns the capability-to-test mapping.
+  """
+  def capability_test_map, do: @capability_test_map
+
+  @doc """
+  Given a capabilities map (from ServiceProviderConfig), returns the list of
+  test IDs whose required capability is not supported by the provider.
+
+  Returns an empty list if capabilities is nil.
+  """
+  def tests_disabled_by_capabilities(nil), do: []
+
+  def tests_disabled_by_capabilities(capabilities) when is_map(capabilities) do
+    Enum.flat_map(@capability_test_map, fn {capability_key, test_ids} ->
+      supported = get_in(capabilities, [capability_key, "supported"])
+
+      if supported == true do
+        []
+      else
+        test_ids
+      end
+    end)
+  end
+
+  @doc """
+  Returns a MapSet of enabled tests after removing tests unsupported by the
+  provider's capabilities, including their transitive dependents.
+  """
+  def enabled_tests_for_capabilities(capabilities) do
+    disabled = tests_disabled_by_capabilities(capabilities)
+    all_disabled = Enum.flat_map(disabled, fn test_id -> [test_id | dependents_of(test_id)] end)
+    all_disabled_set = MapSet.new(all_disabled)
+    MapSet.difference(default_enabled_tests(), all_disabled_set)
+  end
+
   @doc """
   Returns all dependencies of the given test (direct and transitive).
   """

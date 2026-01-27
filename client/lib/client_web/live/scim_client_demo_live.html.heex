@@ -93,6 +93,7 @@
 
             <form
               phx-change="update_config"
+              phx-debounce="500"
               class="space-y-4"
               autocomplete="off"
               phx-hook="ConfigPersistence"
@@ -120,9 +121,66 @@
                 autocomplete="on"
               />
             </form>
+
+            <%= if @client do %>
+              <div class="divider my-2"></div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-semibold">Provider Capabilities</span>
+                <button
+                  phx-click="refresh_capabilities"
+                  disabled={@running or @capabilities == :loading}
+                  class="btn btn-ghost btn-xs btn-circle"
+                  title="Refresh capabilities"
+                >
+                  <.icon
+                    name="hero-arrow-path"
+                    class={"size-3#{if(@capabilities == :loading, do: " animate-spin", else: "")}"}
+                  />
+                </button>
+              </div>
+
+              <%= case @capabilities do %>
+                <% :loading -> %>
+                  <div class="flex items-center space-x-2 text-sm opacity-70">
+                    <span class="loading loading-spinner loading-xs"></span>
+                    <span>Discovering...</span>
+                  </div>
+                <% {:ok, _body} -> %>
+                  <div class="space-y-1">
+                    <%= for {label, supported} <- capabilities_summary(@capabilities) do %>
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="opacity-80">{label}</span>
+                        <%= if supported do %>
+                          <span class="badge badge-success badge-xs">Yes</span>
+                        <% else %>
+                          <span class="badge badge-error badge-xs">No</span>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                  <%= if length(auth_schemes(@capabilities)) > 0 do %>
+                    <div class="mt-2">
+                      <span class="text-xs opacity-70">Auth Schemes</span>
+                      <div class="flex flex-wrap gap-1 mt-1">
+                        <%= for scheme <- auth_schemes(@capabilities) do %>
+                          <span class="badge badge-outline badge-xs">
+                            {Map.get(scheme, "name", "Unknown")}
+                          </span>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
+                <% {:error, _reason} -> %>
+                  <div class="flex items-center space-x-2 text-warning text-xs">
+                    <.icon name="hero-exclamation-triangle" class="size-3" />
+                    <span>Could not fetch capabilities</span>
+                  </div>
+                <% nil -> %>
+              <% end %>
+            <% end %>
           </div>
         </div>
-        
+
 <!-- Test Summary -->
         <div class="mt-6 card bg-base-100 shadow-xl border border-base-300">
           <div class="card-body">
@@ -249,6 +307,11 @@
                     <div>
                       <h3 class="card-title text-base">{test_def.name}</h3>
                       <p class="text-sm opacity-70">{test_def.description}</p>
+                      <%= if not is_enabled and test_unsupported_by_provider?(@capabilities, test_def.id) do %>
+                        <p class="text-xs text-warning mt-0.5">
+                          <.icon name="hero-exclamation-triangle" class="size-3 inline" /> Not supported by provider
+                        </p>
+                      <% end %>
                     </div>
                   </div>
                   

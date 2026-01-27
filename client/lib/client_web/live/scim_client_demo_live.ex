@@ -2,7 +2,17 @@ defmodule ClientWeb.ScimClientDemoLive do
   use ClientWeb, :live_view
 
   alias ExScimClient.Client, as: ScimClient
+  alias ExScimClient.Resources.ServiceProviderConfig
   alias Client.ScimTesting
+
+  @capability_display_items [
+    {"patch", "PATCH Operations"},
+    {"bulk", "Bulk Operations"},
+    {"filter", "Filtering"},
+    {"changePassword", "Change Password"},
+    {"sort", "Sorting"},
+    {"etag", "ETags"}
+  ]
 
   def mount(_params, _session, socket) do
     socket =
@@ -17,7 +27,9 @@ defmodule ClientWeb.ScimClientDemoLive do
         progress: 0,
         logs: [],
         created_user_id: nil,
-        enabled_tests: ScimTesting.default_enabled_tests()
+        enabled_tests: ScimTesting.default_enabled_tests(),
+        capabilities: nil,
+        capabilities_applied: false
       )
 
     send(self(), :load_saved_config)
@@ -33,11 +45,13 @@ defmodule ClientWeb.ScimClientDemoLive do
     {normalized_base_url, client} = create_scim_client(base_url, bearer_token)
 
     socket =
-      assign(socket,
+      socket
+      |> assign(
         base_url: normalized_base_url,
         bearer_token: bearer_token,
         client: client
       )
+      |> maybe_fetch_capabilities(client)
 
     {:noreply, socket}
   end
@@ -111,11 +125,22 @@ defmodule ClientWeb.ScimClientDemoLive do
     {normalized_base_url, client} = create_scim_client(base_url, bearer_token)
 
     socket =
-      assign(socket,
+      socket
+      |> assign(
         base_url: normalized_base_url,
         bearer_token: bearer_token,
         client: client
       )
+      |> maybe_fetch_capabilities(client)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("refresh_capabilities", _params, socket) do
+    socket =
+      socket
+      |> assign(capabilities_applied: false)
+      |> maybe_fetch_capabilities(socket.assigns.client)
 
     {:noreply, socket}
   end
@@ -244,7 +269,85 @@ defmodule ClientWeb.ScimClientDemoLive do
     {:noreply, push_event(socket, "load_saved_config", %{})}
   end
 
+  def handle_info({:capabilities_fetched, {:ok, body}}, socket) do
+    socket = assign(socket, capabilities: {:ok, body})
+
+    socket =
+      if socket.assigns.capabilities_applied do
+        socket
+      else
+        enabled = ScimTesting.enabled_tests_for_capabilities(body)
+        assign(socket, enabled_tests: enabled, capabilities_applied: true)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:capabilities_fetched, {:error, reason}}, socket) do
+    message =
+      case reason do
+        msg when is_binary(msg) -> msg
+        other -> inspect(other)
+      end
+
+    {:noreply, assign(socket, capabilities: {:error, message})}
+  end
+
   def test_definitions, do: ScimTesting.test_definitions()
+
+  def capability_supported?(capabilities, key) do
+    case capabilities do
+      {:ok, body} -> get_in(body, [key, "supported"]) == true
+      _ -> nil
+    end
+  end
+
+  def capabilities_summary(capabilities) do
+    Enum.map(@capability_display_items, fn {key, label} ->
+      {label, capability_supported?(capabilities, key)}
+    end)
+  end
+
+  def auth_schemes(capabilities) do
+    case capabilities do
+      {:ok, body} -> Map.get(body, "authenticationSchemes", [])
+      _ -> []
+    end
+  end
+
+  def test_unsupported_by_provider?(capabilities, test_id) do
+    case capabilities do
+      {:ok, body} ->
+        disabled = ScimTesting.tests_disabled_by_capabilities(body)
+        test_id in disabled
+
+      _ ->
+        false
+    end
+  end
+
+  defp maybe_fetch_capabilities(socket, nil) do
+    assign(socket, capabilities: nil)
+  end
+
+  defp maybe_fetch_capabilities(socket, client) do
+    live_view_pid = self()
+
+    Task.start(fn ->
+      result =
+        try do
+          ServiceProviderConfig.get(client)
+        rescue
+          error -> {:error, "Connection failed: #{inspect(error)}"}
+        catch
+          :exit, reason -> {:error, "Connection terminated: #{inspect(reason)}"}
+        end
+
+      send(live_view_pid, {:capabilities_fetched, result})
+    end)
+
+    assign(socket, capabilities: :loading)
+  end
 
   defp create_scim_client("", _bearer_token), do: {"", nil}
   defp create_scim_client(_base_url, ""), do: {"", nil}
