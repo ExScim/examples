@@ -358,7 +358,17 @@
                             View response data
                           </summary>
                           <div class="collapse-content">
-                            <pre class="text-xs whitespace-pre-wrap"><%= inspect(test_result.result, pretty: true, limit: :infinity) %></pre>
+                            <div class="max-h-32 overflow-auto">
+                              <pre class="text-xs whitespace-pre-wrap break-all"><%= truncate_output(test_result.result) %></pre>
+                            </div>
+                            <button
+                              phx-click="show_full_output"
+                              phx-value-test_id={test_def.id}
+                              phx-value-type="result"
+                              class="btn btn-xs btn-ghost mt-2"
+                            >
+                              View full output
+                            </button>
                           </div>
                         </details>
                       <% end %>
@@ -384,9 +394,21 @@
 
                       <%= if test_result.error do %>
                         <div class="alert alert-error">
-                          <p class="text-xs font-mono">
-                            {inspect(test_result.error)}
-                          </p>
+                          <div class="flex-1 min-w-0">
+                            <div class="max-h-24 overflow-auto">
+                              <p class="text-xs font-mono whitespace-pre-wrap break-all">
+                                <%= truncate_output(test_result.error) %>
+                              </p>
+                            </div>
+                            <button
+                              phx-click="show_full_output"
+                              phx-value-test_id={test_def.id}
+                              phx-value-type="error"
+                              class="btn btn-xs btn-ghost mt-2"
+                            >
+                              View full output
+                            </button>
+                          </div>
                         </div>
                       <% end %>
                     </div>
@@ -463,4 +485,28 @@
       </div>
     </div>
   </div>
+
+  <!-- Full Output Modal -->
+  <%= if @modal_output do %>
+    <div class="modal modal-open" phx-window-keydown="close_modal" phx-key="Escape">
+      <div class="modal-box max-w-4xl max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-lg">
+            <%= if @modal_output.type == "error", do: "Error Details", else: "Response Data" %>
+            <span class="text-sm font-normal opacity-70 ml-2">
+              ({@modal_output.test_name})
+            </span>
+          </h3>
+          <button phx-click="close_modal" class="btn btn-sm btn-circle btn-ghost">✕</button>
+        </div>
+        <div class="flex-1 overflow-auto bg-base-200 rounded-lg p-4">
+          <pre class="text-xs whitespace-pre-wrap break-all"><%= @modal_output.content %></pre>
+        </div>
+        <div class="modal-action">
+          <button phx-click="close_modal" class="btn">Close</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="close_modal"></div>
+    </div>
+  <% end %>
 </div>

@@ -29,7 +29,8 @@ defmodule ClientWeb.ScimClientDemoLive do
         created_user_id: nil,
         enabled_tests: ScimTesting.default_enabled_tests(),
         capabilities: nil,
-        capabilities_applied: false
+        capabilities_applied: false,
+        modal_output: nil
       )
 
     send(self(), :load_saved_config)
@@ -171,6 +172,31 @@ defmodule ClientWeb.ScimClientDemoLive do
 
   def handle_event("toggle_all_tests", %{"action" => "disable"}, socket) do
     {:noreply, assign(socket, enabled_tests: MapSet.new())}
+  end
+
+  def handle_event("show_full_output", %{"test_id" => test_id, "type" => type}, socket) do
+    test_atom = String.to_existing_atom(test_id)
+    test_result = Map.get(socket.assigns.test_results, test_atom)
+    test_def = Enum.find(ScimTesting.test_definitions(), &(&1.id == test_atom))
+
+    content =
+      case type do
+        "error" -> inspect(test_result.error, pretty: true, limit: :infinity, width: 80)
+        "result" -> inspect(test_result.result, pretty: true, limit: :infinity, width: 80)
+      end
+
+    modal_output = %{
+      test_id: test_atom,
+      test_name: test_def.name,
+      type: type,
+      content: content
+    }
+
+    {:noreply, assign(socket, modal_output: modal_output)}
+  end
+
+  def handle_event("close_modal", _params, socket) do
+    {:noreply, assign(socket, modal_output: nil)}
   end
 
   def handle_info(:run_tests, socket) do
@@ -384,6 +410,18 @@ defmodule ClientWeb.ScimClientDemoLive do
 
       true ->
         :ok
+    end
+  end
+
+  @max_output_length 500
+
+  def truncate_output(data) do
+    output = inspect(data, pretty: true, limit: 50, width: 60)
+
+    if String.length(output) > @max_output_length do
+      String.slice(output, 0, @max_output_length) <> "\n..."
+    else
+      output
     end
   end
 end
