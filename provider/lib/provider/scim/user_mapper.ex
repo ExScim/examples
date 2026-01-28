@@ -1,16 +1,14 @@
 defmodule Provider.Scim.UserMapper do
   @moduledoc """
-  Data transformation between SCIM format and Provider.Accounts.User domain struct.
+  Maps between SCIM format and Provider.Accounts.User domain struct.
   """
 
-  @behaviour ExScim.Users.Mapper.Adapter
+  use ExScim.Users.Mapper.Adapter
 
   alias Provider.Accounts.User
   alias ExScim.Config
 
-  @doc """
-  Converts SCIM user data to a domain User struct.
-  """
+  @impl true
   def from_scim(scim_data) do
     %User{
       user_name: scim_data["userName"],
@@ -25,11 +23,12 @@ defmodule Provider.Scim.UserMapper do
     }
   end
 
-  @doc """
-  Converts a domain User struct to SCIM format.
-  """
+  @impl true
   def to_scim(%User{} = user, opts \\ []) do
-    location = Keyword.get(opts, :location)
+    location =
+      Keyword.get_lazy(opts, :location, fn ->
+        Config.resource_url("Users", user.id)
+      end)
 
     %{
       "schemas" => ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -40,11 +39,11 @@ defmodule Provider.Scim.UserMapper do
       "active" => user.active,
       "emails" => format_emails(user.email),
       "name" => format_name(user),
-      "meta" => format_meta(user, location)
+      "meta" => format_meta(user, location: location, resource_type: "User")
     }
   end
 
-  # Private helper functions
+  # Domain-specific helpers
 
   defp get_primary_email(emails) when is_list(emails) do
     case Enum.find(emails, &Map.get(&1, "primary", false)) || List.first(emails) do
@@ -76,46 +75,4 @@ defmodule Provider.Scim.UserMapper do
       "formatted" => formatted
     }
   end
-
-  defp format_meta(%User{} = user, location) do
-    location = location || generate_user_location(user.id)
-
-    %{
-      "created" => format_datetime(user.meta_created),
-      "lastModified" => format_datetime(user.meta_last_modified),
-      "resourceType" => "User",
-      "location" => location,
-      "etag" => generate_etag(user.meta_last_modified)
-    }
-  end
-
-  defp parse_datetime(nil), do: nil
-  defp parse_datetime(%DateTime{} = dt), do: dt
-
-  defp parse_datetime(binary) when is_binary(binary) do
-    case DateTime.from_iso8601(binary) do
-      {:ok, dt, _offset} -> dt
-      {:error, _} -> nil
-    end
-  end
-
-  defp format_datetime(nil), do: nil
-  defp format_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
-  defp format_datetime(binary) when is_binary(binary), do: binary
-
-  defp generate_user_location(user_id) when is_binary(user_id) do
-    Config.resource_url("Users", user_id)
-  end
-
-  defp generate_user_location(_), do: nil
-
-  defp generate_etag(%DateTime{} = dt) do
-    dt
-    |> DateTime.to_iso8601()
-    |> then(&:crypto.hash(:md5, &1))
-    |> Base.encode16(case: :lower)
-    |> then(&"\"#{&1}\"")
-  end
-
-  defp generate_etag(_), do: nil
 end
