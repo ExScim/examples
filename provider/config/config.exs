@@ -74,7 +74,29 @@ config :ex_scim,
   group_model: Provider.Accounts.Group,
   bulk_supported: true,
   bulk_max_operations: 1000,
-  bulk_max_payload_size: 1_048_576
+  bulk_max_payload_size: 1_048_576,
+  patch_supported: true,
+  filter_supported: true,
+  filter_max_results: 200,
+  change_password_supported: true,
+  sort_supported: true,
+  etag_supported: true,
+  documentation_uri: "http://localhost:4000/scim/docs",
+  authentication_schemes: [
+    %{
+      "type" => "oauthbearertoken",
+      "name" => "OAuth Bearer Token",
+      "description" => "Authentication scheme using the OAuth Bearer Token Standard",
+      "specUri" => "https://www.rfc-editor.org/info/rfc6750",
+      "primary" => true
+    },
+    %{
+      "type" => "httpbasic",
+      "name" => "HTTP Basic",
+      "description" => "Authentication scheme using the HTTP Basic Standard",
+      "specUri" => "https://www.rfc-editor.org/info/rfc2617"
+    }
+  ]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
